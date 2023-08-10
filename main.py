@@ -1,6 +1,8 @@
 import asyncio
 import aiohttp
+from urllib.parse import urlparse
 
+# https://drive.usercontent.google.com/download?id=1Hsr0Fspd9TSBI5dQ77mm_avyn-MWybUa&export=download&authuser=0&confirm=t&uuid=9859fa3e-6e15-4af6-9df6-248372bfdf2f&at=APZUnTU6RqTZpBLYf2KyDo9paddp:1691672020655
 current_downloads = 0
 lock = asyncio.Lock()
 urls = ["https://drive.usercontent.google.com/download?id=1Hsr0Fspd9TSBI5dQ77mm_avyn-MWybUa&export=download&authuser=0&confirm=t&uuid=9859fa3e-6e15-4af6-9df6-248372bfdf2f&at=APZUnTU6RqTZpBLYf2KyDo9paddp:1691672020655", \
@@ -13,9 +15,12 @@ urls = ["https://drive.usercontent.google.com/download?id=1Hsr0Fspd9TSBI5dQ77mm_
 
 async def handle_url(session, url):
 
+    parsed_url = urlparse(url)
+    source = parsed_url.netloc
+    name = parsed_url.path.split("/")[-1]
+
     global current_downloads
 
-    source, name = url.split("/")[-2:]
 
     response = await session.get(url, ssl=False)
 
