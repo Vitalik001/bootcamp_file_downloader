@@ -1,38 +1,48 @@
 import asyncio
 import aiohttp
-import time
 
 current_downloads = 0
-urls = ["https://images.pexels.com/photos/358457/pexels-photo-358457.jpeg", \
-            "https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg",\
-            "https://res.cloudinary.com/demo/image/upload/bo_1px_solid_gray/f_auto,q_auto/docs/jackie-favicon.png",\
-            "https://res.cloudinary.com/demo/images/ar_1.0,c_thumb,g_face,w_0.6,z_0.7/r_max/co_brown,e_outline/t8sn7wg4jd74j/baloncesto-juego.jpg",\
-            "https://res.cloudinary.com/demo/image/upload/a_45/c_scale,w_200/d_avatar.png/non_existing_id.png"]
+lock = asyncio.Lock()
+urls = ["https://drive.usercontent.google.com/download?id=1Hsr0Fspd9TSBI5dQ77mm_avyn-MWybUa&export=download&authuser=0&confirm=t&uuid=9859fa3e-6e15-4af6-9df6-248372bfdf2f&at=APZUnTU6RqTZpBLYf2KyDo9paddp:1691672020655", \
+        "https://drive.usercontent.google.com/download?id=1DEHn8qewiIKvb22ChndM_e_Ln4LvP1g0&export=download&authuser=0&confirm=t&uuid=62a13df8-de5a-4f49-ac5c-a564061e9d80&at=APZUnTX2tAugmAwsmObdWW-xpli7:1691669429481", \
+        "https://images.pexels.com/photos/358457/pexels-photo-358457.jpeg", \
+        "https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg",\
+        "https://res.cloudinary.com/demo/image/upload/bo_1px_solid_gray/f_auto,q_auto/docs/jackie-favicon.png",\
+        "https://res.cloudinary.com/demo/images/ar_1.0,c_thumb,g_face,w_0.6,z_0.7/r_max/co_brown,e_outline/t8sn7wg4jd74j/baloncesto-juego.jpg",\
+        "https://res.cloudinary.com/demo/image/upload/a_45/c_scale,w_200/d_avatar.png/non_existing_id.png"]
 
 async def handle_url(session, url):
 
     global current_downloads
+
     source, name = url.split("/")[-2:]
 
     response = await session.get(url, ssl=False)
 
-    print(f"Started downloading a file from {source}")
-    current_downloads += 1
-    print(f"Downloading {current_downloads} files")
+
 
     if response.status == 200:
+
+        print(f"Started downloading a file from {source}")
+        await lock.acquire()
+        current_downloads += 1
+        lock.release()
+        print(f"Downloading {current_downloads} files")
+
         with open(name, "wb") as file:
             async for chunk in response.content.iter_any():
                 file.write(chunk)
 
         print("File downloaded successfully.")
+        await lock.acquire()
         current_downloads -= 1
-
+        lock.release()
         if current_downloads == 0:
             print("All files finished downloading")
 
     else:
         print(f"Failed to download file from {source}. Status code: {response.status}")
+
 
 
 async def main():
@@ -43,16 +53,16 @@ async def main():
 
         tasks = []
 
-        while (url := input()) != "exit":
-        # for url in urls:
-            print(url)
+        while True:
+            url = await asyncio.get_running_loop().run_in_executor(None, input, '> ')
+            # url = input()
+            if url == "exit":
+                break
             tasks.append(asyncio.create_task(handle_url(session, url)))
 
         await asyncio.gather(*tasks)
 
 
 if __name__ == "__main__":
-    start = time.time()
     asyncio.run(main())
-    end = time.time()
-    print(end-start)
+
