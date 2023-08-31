@@ -14,39 +14,45 @@ urls = ["https://drive.usercontent.google.com/download?id=1Hsr0Fspd9TSBI5dQ77mm_
         "https://res.cloudinary.com/demo/image/upload/a_45/c_scale,w_200/d_avatar.png/non_existing_id.png"]
 
 async def handle_url(session, url):
+    try:
+        parsed_url = urlparse(url)
+    except Exception:
+        print("Invalid URL format")
+        return
 
-    parsed_url = urlparse(url)
     source = parsed_url.netloc
     name = parsed_url.path.split("/")[-1]
 
     global current_downloads
 
+    try:
+        async with session.get(url, ssl=False) as response:
+            response.raise_for_status()  # Raises an exception if the response status is not successful
 
-    response = await session.get(url, ssl=False)
+            if response.status == 200:
+                print(f"Started downloading file {name} from {source}")
 
+                current_downloads += 1
+                print(f"Downloading {current_downloads} files")
 
+                with open(name, "wb") as file:
+                    async for chunk in response.content.iter_any():
+                        file.write(chunk)
 
-    if response.status == 200:
+                print(f"File {name} from {source} downloaded successfully.")
 
-        print(f"Started downloading a file from {source}")
-        await lock.acquire()
-        current_downloads += 1
-        lock.release()
-        print(f"Downloading {current_downloads} files")
+                current_downloads -= 1
 
-        with open(name, "wb") as file:
-            async for chunk in response.content.iter_any():
-                file.write(chunk)
-
-        print("File downloaded successfully.")
-        await lock.acquire()
-        current_downloads -= 1
-        lock.release()
-        if current_downloads == 0:
-            print("All files finished downloading")
-
-    else:
-        print(f"Failed to download file from {source}. Status code: {response.status}")
+                if current_downloads == 0:
+                    print("All files finished downloading")
+            else:
+                print(f"Failed to download file {name} from {source}. Status code: {response.status}")
+    except aiohttp.client_exceptions.InvalidURL:
+        print(f"Invalid URL: {url}")
+    except aiohttp.ClientResponseError as e:
+        print(f"Error downloading {url}: {e.status}")
+    except Exception as e:
+        print(f"An error occurred while processing {url}: {e}")
 
 
 
@@ -59,11 +65,13 @@ async def main():
         tasks = []
 
         while True:
-            url = await asyncio.get_running_loop().run_in_executor(None, input, '> ')
+            url = await asyncio.get_running_loop().run_in_executor(None, input)
             # url = input()
             if url == "exit":
                 break
+
             tasks.append(asyncio.create_task(handle_url(session, url)))
+
 
         await asyncio.gather(*tasks)
 
